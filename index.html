@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Загрузка сюрприза…</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Rubik:wght@400;500&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --bg: #1c2530;
+        --paper: #f4f6f8;
+        --ink: #e9eef3;
+        --muted: #8fa0b2;
+        --stamp: #e0382f;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { height: 100%; }
+
+    body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: 'Rubik', system-ui, sans-serif;
+        line-height: 1.5;
+        overflow-x: hidden;
+    }
+
+    [hidden] { display: none !important; }
+
+    .screen {
+        width: 100%;
+        max-width: 560px;
+        text-align: center;
+    }
+
+    /* ---------- ожидание / ошибка ---------- */
+    .status-title {
+        font-family: 'Russo One', sans-serif;
+        font-size: clamp(26px, 6vw, 38px);
+        font-weight: 400;
+        margin-bottom: 12px;
+    }
+
+    .status-text {
+        max-width: 42ch;
+        margin: 0 auto 24px;
+        color: var(--muted);
+        font-size: 17px;
+    }
+
+    .btn {
+        padding: 12px 28px;
+        font-family: inherit;
+        font-size: 16px;
+        font-weight: 500;
+        color: var(--bg);
+        background: var(--paper);
+        border: 0;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+
+    .btn:hover { background: #fff; }
+
+    .btn:focus-visible {
+        outline: 3px solid var(--stamp);
+        outline-offset: 3px;
+    }
+
+    /* ---------- результат ---------- */
+    .result-title {
+        font-family: 'Russo One', sans-serif;
+        font-size: clamp(34px, 9vw, 60px);
+        font-weight: 400;
+        line-height: 1.05;
+        margin-bottom: 28px;
+    }
+
+    .photo-frame {
+        position: relative;
+        display: inline-block;
+        max-width: 100%;
+        padding: 12px 12px 44px;
+        background: var(--paper);
+        border-radius: 4px;
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+        transform: rotate(-2deg);
+        animation: drop 0.5s cubic-bezier(.2, 1.4, .4, 1) both;
+    }
+
+    .photo-frame canvas {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        max-height: 55vh;
+    }
+
+    .stamp {
+        position: absolute;
+        right: -18px;
+        bottom: 18px;
+        padding: 4px 16px;
+        font-family: 'Russo One', sans-serif;
+        font-size: clamp(22px, 6vw, 34px);
+        color: var(--stamp);
+        border: 4px solid var(--stamp);
+        border-radius: 6px;
+        background: rgba(244, 246, 248, 0.88);
+        transform: rotate(-9deg);
+        animation: stamp 0.35s 0.5s cubic-bezier(.3, 1.6, .5, 1) both;
+    }
+
+    .actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        margin-top: 34px;
+    }
+
+    /* серая кнопка поменьше */
+    .btn-keep {
+        padding: 12px 24px;
+        font-size: 15px;
+        color: var(--ink);
+        background: #55616f;
+    }
+
+    .btn-keep:hover { background: #667384; }
+
+    /* красная кнопка крупнее */
+    .btn-send {
+        padding: 18px 42px;
+        font-family: 'Russo One', sans-serif;
+        font-size: 22px;
+        font-weight: 400;
+        color: #fff;
+        background: var(--stamp);
+    }
+
+    .btn-send:hover { background: #f0463c; }
+
+    .btn-send:disabled {
+        background: #7d4a47;
+        cursor: default;
+    }
+
+    .send-status {
+        min-height: 1.5em;
+        margin-top: 16px;
+        color: var(--ink);
+        font-size: 16px;
+    }
+
+    .privacy {
+        max-width: 44ch;
+        margin: 14px auto 18px;
+        color: var(--muted);
+        font-size: 15px;
+    }
+
+    .btn-link {
+        padding: 6px 10px;
+        font-family: inherit;
+        font-size: 15px;
+        color: var(--muted);
+        text-decoration: underline;
+        background: none;
+        border: 0;
+        cursor: pointer;
+    }
+
+    .btn-link:hover { color: var(--ink); }
+
+
+    /* ---------- вход ---------- */
+    .login {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .login input {
+        width: 100%;
+        max-width: 320px;
+        padding: 12px 14px;
+        font-family: inherit;
+        font-size: 18px;
+        color: var(--ink);
+        text-align: center;
+        background: #243140;
+        border: 2px solid #55616f;
+        border-radius: 8px;
+    }
+
+    .login input:focus-visible {
+        outline: 3px solid var(--stamp);
+        outline-offset: 2px;
+    }
+
+    .login-error {
+        min-height: 1.5em;
+        margin-top: 14px;
+        color: #ff8a82;
+        font-size: 16px;
+    }
+
+    .btn-secret {
+        display: inline-block;
+        margin-top: 22px;
+        padding: 12px 28px;
+        font-size: 16px;
+        font-weight: 500;
+        color: var(--paper);
+        text-decoration: none;
+        background: transparent;
+        border: 2px solid var(--paper);
+        border-radius: 8px;
+    }
+
+    .btn-secret:hover { background: rgba(255, 255, 255, 0.1); }
+
+
+    /* ---------- режим Юли ---------- */
+    .live canvas {
+        display: block;
+        width: 100%;
+        max-width: 420px;
+        height: auto;
+        margin: 0 auto 14px;
+        border-radius: 12px;
+    }
+
+    .live video {
+        display: block;
+        width: 100%;
+        max-width: 420px;
+        aspect-ratio: 4 / 3;
+        margin: 0 auto 14px;
+        object-fit: cover;
+        background: #0e131a;
+        border-radius: 12px;
+        transform: scaleX(-1); /* как в зеркале */
+    }
+
+    .actions .btn-secret { margin-top: 0; }
+
+    .btn-main {
+        padding: 16px 36px;
+        font-family: 'Russo One', sans-serif;
+        font-size: 20px;
+        font-weight: 400;
+    }
+
+    @keyframes drop {
+        from { opacity: 0; transform: translateY(-40px) rotate(-8deg); }
+        to   { opacity: 1; transform: translateY(0) rotate(-2deg); }
+    }
+
+    @keyframes stamp {
+        from { opacity: 0; transform: scale(2.4) rotate(-9deg); }
+        to   { opacity: 1; transform: scale(1) rotate(-9deg); }
+    }
+
+    /* вспышка при «съёмке» */
+    .flash {
+        position: fixed;
+        inset: 0;
+        background: #fff;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .flash.go { animation: flash 0.6s ease-out; }
+
+    @keyframes flash {
+        0%   { opacity: 1; }
+        100% { opacity: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .photo-frame, .stamp { animation: none; }
+        .flash.go { animation: none; }
+    }
+</style>
+</head>
+<body>
+
+<!-- 0. вход: имя -->
+<main class="screen" id="screen-name">
+    <h1 class="status-title">Сначала представься</h1>
+    <p class="status-text">Введи своё имя, чтобы войти.</p>
+    <form class="login" id="name-form" autocomplete="off">
+        <input type="text" id="name-input" maxlength="40" placeholder="Твоё имя" aria-label="Твоё имя" required>
+        <button class="btn" type="submit">Войти</button>
+    </form>
+</main>
+
+<!-- 0.5. вход: секретный код (для Юли и Саши) -->
+<main class="screen" id="screen-code" hidden>
+    <h1 class="status-title">Нужен секретный код</h1>
+    <p class="status-text">Для этого имени нужен код. Фото попадают в общую галерею Юли и Саши только тогда, когда ты сам нажмёшь кнопку.</p>
+    <form class="login" id="code-form" autocomplete="off">
+        <input type="password" id="code-input" maxlength="40" placeholder="Секретный код" aria-label="Секретный код" required>
+        <button class="btn" type="submit">Продолжить</button>
+    </form>
+    <p class="login-error" id="code-error" role="alert"></p>
+    <button class="btn-link" type="button" id="code-back">Ввёл не то имя</button>
+</main>
+
+<!-- меню Юли: без шуток, две кнопки -->
+<main class="screen" id="screen-menu" hidden>
+    <h1 class="status-title">Привет, Юля!</h1>
+    <p class="status-text">Что хочешь сделать?</p>
+    <div class="actions">
+        <button class="btn btn-main" type="button" id="menu-gallery">Посмотреть секретную галерею</button>
+        <button class="btn btn-main" type="button" id="menu-photo">Сделать фото</button>
+    </div>
+    <button class="btn-link" type="button" id="menu-logout">Выйти</button>
+</main>
+
+<!-- камера с превью: Юля делает фото, Саша переделывает -->
+<main class="screen" id="screen-camera" hidden>
+    <h1 class="status-title" id="camera-title">Сфоткайся</h1>
+    <p class="status-text" id="camera-hint"></p>
+    <div class="live">
+        <video id="live-video" playsinline muted autoplay></video>
+    </div>
+    <div class="actions">
+        <button class="btn btn-main" type="button" id="camera-shoot">Сфоткаться</button>
+    </div>
+    <p class="send-status" id="camera-status" role="status"></p>
+    <button class="btn-link" type="button" id="camera-back">Назад</button>
+</main>
+
+<!-- Юля: посмотреть фото, переделать или отправить в галерею -->
+<main class="screen" id="screen-preview" hidden>
+    <h1 class="status-title">Твоё фото</h1>
+    <p class="status-text">В галерею оно попадёт, только когда ты нажмёшь «Отправить».</p>
+    <div class="live">
+        <canvas id="preview-canvas" aria-label="Твоё фото"></canvas>
+    </div>
+    <div class="actions">
+        <button class="btn btn-keep" type="button" id="yulya-retake">Переделать фото</button>
+        <button class="btn btn-send" type="button" id="yulya-submit">Отправить фото в секретную галерею</button>
+    </div>
+    <p class="send-status" id="preview-status" role="status"></p>
+    <button class="btn-link" type="button" id="preview-back">Назад в меню</button>
+</main>
+
+<!-- ожидание -->
+<main class="screen" id="screen-wait">
+    <h1 class="status-title">Загружаем сюрприз…</h1>
+    <p class="status-text">Если браузер спросит про камеру, нажми «Разрешить» — иначе сюрприз не откроется.</p>
+</main>
+
+<!-- камера не разрешена / недоступна -->
+<main class="screen" id="screen-denied" hidden>
+    <h1 class="status-title">Камеру не разрешил — хитрый</h1>
+    <p class="status-text" id="denied-text">В этот раз ты спасён. Но сюрприз так и остался нераскрытым.</p>
+    <button class="btn" type="button" id="retry-denied">Попробовать ещё раз</button>
+</main>
+
+<!-- результат: «Попался!» -->
+<main class="screen" id="screen-result" hidden>
+    <h1 class="result-title">Вот ты и попался!</h1>
+    <div class="photo-frame">
+        <canvas id="photo" aria-label="Твоё фото с камеры"></canvas>
+        <div class="stamp">ПОПАЛСЯ</div>
+    </div>
+
+    <!-- кнопки для обычных посетителей -->
+    <div class="actions" id="actions-normal">
+        <button class="btn btn-keep" type="button" id="keep">Оставить фото себе</button>
+        <button class="btn btn-send" type="button" id="send">Отправить Юльке</button>
+    </div>
+
+    <!-- кнопки для Саши -->
+    <div class="actions" id="actions-sasha" hidden>
+        <button class="btn btn-keep" type="button" id="sasha-retake">Переделать фото</button>
+        <button class="btn btn-send" type="button" id="sasha-submit">Отправить фото в секретную галерею</button>
+    </div>
+
+    <p class="send-status" id="send-status" role="status"></p>
+    <p class="privacy" id="privacy-text">Это шутка. Фото само никуда не уходит: оно отправится Юльке только если ты нажмёшь красную кнопку.</p>
+    <button class="btn-link" type="button" id="again">Сфоткать ещё раз</button>
+</main>
+
+<div class="flash" id="flash"></div>
+
+<!-- скрытое видео для захвата кадра в шутке -->
+<video id="cam" playsinline muted hidden></video>
+
+<script src="https://forminit.com/sdk/v1/forminit.js"></script>
+<script type="module">
+    const screens = {
+        name: document.getElementById('screen-name'),
+        code: document.getElementById('screen-code'),
+        menu: document.getElementById('screen-menu'),
+        camera: document.getElementById('screen-camera'),
+        preview: document.getElementById('screen-preview'),
+        wait: document.getElementById('screen-wait'),
+        denied: document.getElementById('screen-denied'),
+        result: document.getElementById('screen-result')
+    };
+
+    // Firebase нужен только Юле и Саше. Если не загрузился, шутка для остальных всё равно работает.
+    let fb = null;
+    try {
+        fb = await import('./firebase-setup.js');
+    } catch (err) {
+        console.warn('Firebase не подключён:', err);
+    }
+
+    const video = document.getElementById('cam');
+    const canvas = document.getElementById('photo');
+    const flash = document.getElementById('flash');
+    const deniedText = document.getElementById('denied-text');
+    let currentKey = null;   // кто вошёл по имени: 'sasha', 'yulya' или null
+
+    const TITLES = {
+        name: 'Вход', code: 'Вход', menu: 'Привет, Юля!', camera: 'Камера', preview: 'Твоё фото',
+        wait: 'Загрузка сюрприза…', denied: 'Загрузка сюрприза…', result: 'Попался!'
+    };
+
+    function show(name) {
+        Object.keys(screens).forEach(function (key) {
+            screens[key].hidden = key !== name;
+        });
+        document.title = TITLES[name];
+        if (name === 'result') {
+            updateResult();
+        }
+        if (name === 'preview') {
+            resetPreview();
+        }
+    }
+
+    function doFlash() {
+        flash.classList.remove('go');
+        void flash.offsetWidth;
+        flash.classList.add('go');
+    }
+
+    function pad(n) {
+        return String(n).padStart(2, '0');
+    }
+
+    // рисует кадр из видео (source) в большой canvas с подписью как у камеры наблюдения
+    function takePhoto(source) {
+        const w = source.videoWidth;
+        const h = source.videoHeight;
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+
+        // зеркалим, как в обычном селфи
+        ctx.save();
+        ctx.translate(w, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(source, 0, 0, w, h);
+        ctx.restore();
+    }
+
+    function stopStream(videoEl) {
+        const stream = videoEl.srcObject;
+        if (stream) {
+            stream.getTracks().forEach(function (track) { track.stop(); });
+        }
+        videoEl.srcObject = null;
+    }
+
+    function fail(text) {
+        stopStream(video);
+        deniedText.textContent = text;
+        show('denied');
+    }
+
+    // ===== шутка: камера сама делает фото =====
+    async function start() {
+        show('wait');
+        sendBtn.disabled = false;
+        sendStatus.textContent = '';
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            fail('Камера в этом браузере недоступна. Для шутки нужна страница по https:// — открой сайт по обычной ссылке, а не как файл.');
+            return;
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'user' },
+                audio: false
+            });
+            video.srcObject = stream;
+            await video.play();
+
+            // даём камере секунду, чтобы подстроить яркость
+            setTimeout(function () {
+                if (!video.videoWidth) {
+                    fail('Камера не отдала картинку. Попробуй ещё раз.');
+                    return;
+                }
+                takePhoto(video);
+                stopStream(video);
+                doFlash();
+                show('result');
+            }, 1200);
+        } catch (err) {
+            if (err && (err.name === 'NotAllowedError' || err.name === 'SecurityError')) {
+                fail('В этот раз ты спасён. Но сюрприз так и остался нераскрытым.');
+            } else {
+                fail('Камера не нашлась или занята другой программой.');
+            }
+        }
+    }
+
+    // ===== кнопки обычного посетителя: скачать и отправить на почту =====
+    // ВПИШИ ID ФОРМЫ из кабинета Forminit (forminit.com): Forms -> твоя форма -> Form ID.
+    const FORMINIT_ID = 'ТВОЙ_ID_ФОРМЫ';
+
+    const sendBtn = document.getElementById('send');
+    const sendStatus = document.getElementById('send-status');
+
+    // уменьшаем фото до 1280px по ширине и делаем JPEG — письмо будет лёгким
+    function getPhotoBlob() {
+        return new Promise(function (resolve) {
+            const scale = Math.min(1, 1280 / canvas.width);
+            const small = document.createElement('canvas');
+            small.width = Math.round(canvas.width * scale);
+            small.height = Math.round(canvas.height * scale);
+            small.getContext('2d').drawImage(canvas, 0, 0, small.width, small.height);
+            small.toBlob(resolve, 'image/jpeg', 0.85);
+        });
+    }
+
+    // маленький JPEG (data URL), чтобы влез в запись базы данных
+    function getPhotoDataUrl(source) {
+        const from = source || canvas;
+        const scale = Math.min(1, 900 / from.width);
+        const small = document.createElement('canvas');
+        small.width = Math.round(from.width * scale);
+        small.height = Math.round(from.height * scale);
+        small.getContext('2d').drawImage(from, 0, 0, small.width, small.height);
+        return small.toDataURL('image/jpeg', 0.7);
+    }
+
+    document.getElementById('keep').addEventListener('click', async function () {
+        const blob = await getPhotoBlob();
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'popalsya.jpg';
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
+        sendStatus.textContent = 'Фото сохранено у тебя.';
+    });
+
+    sendBtn.addEventListener('click', async function () {
+        if (FORMINIT_ID.indexOf('ТВОЙ_ID') === 0) {
+            sendStatus.textContent = 'ID формы ещё не вписан в код.';
+            return;
+        }
+        if (typeof Forminit === 'undefined') {
+            sendStatus.textContent = 'Сервис отправки не загрузился. Проверь интернет и обнови страницу.';
+            return;
+        }
+
+        sendBtn.disabled = true;
+        sendStatus.textContent = 'Отправляем…';
+
+        try {
+            const blob = await getPhotoBlob();
+            const file = new File([blob], 'popalsya.jpg', { type: 'image/jpeg' });
+            const data = new FormData();
+            data.append('fi-file-attachment', file);
+
+            const forminit = new Forminit();
+            const result = await forminit.submit(FORMINIT_ID, data);
+
+            if (result.error) {
+                throw new Error(result.error.message || 'ошибка сервиса');
+            }
+            sendStatus.textContent = 'Отправлено Юльке!';
+        } catch (err) {
+            sendBtn.disabled = false;
+            sendStatus.textContent = 'Не получилось отправить (' + err.message + '). Попробуй ещё раз.';
+        }
+    });
+
+    document.getElementById('retry-denied').addEventListener('click', start);
+    document.getElementById('again').addEventListener('click', start);
+
+    // ===== экран «Попался»: у Саши свои кнопки =====
+    const actionsNormal = document.getElementById('actions-normal');
+    const actionsSasha = document.getElementById('actions-sasha');
+    const againBtn = document.getElementById('again');
+    const privacyText = document.getElementById('privacy-text');
+    const sashaRetake = document.getElementById('sasha-retake');
+    const sashaSubmit = document.getElementById('sasha-submit');
+    const DEFAULT_PRIVACY = privacyText.textContent;
+
+    function updateResult() {
+        const isSasha = currentKey === 'sasha' && fb && fb.auth.currentUser;
+        actionsNormal.hidden = Boolean(isSasha);
+        againBtn.hidden = Boolean(isSasha);
+        actionsSasha.hidden = !isSasha;
+        privacyText.textContent = isSasha
+            ? 'Фото попадёт в секретную галерею только если ты нажмёшь «Отправить фото в секретную галерею».'
+            : DEFAULT_PRIVACY;
+        sashaRetake.disabled = false;
+        sashaSubmit.disabled = false;
+        sendStatus.textContent = '';
+    }
+
+    sashaRetake.addEventListener('click', function () {
+        openCamera('sasha');
+    });
+
+    sashaSubmit.addEventListener('click', async function () {
+        sashaRetake.disabled = true;
+        sashaSubmit.disabled = true;
+        sendStatus.textContent = 'Отправляем в секретную галерею…';
+
+        try {
+            await fb.savePhoto(getPhotoDataUrl());
+            sendStatus.textContent = 'Готово! Открываем галерею…';
+            location.href = 'gallery.html';
+        } catch (err) {
+            sashaRetake.disabled = false;
+            sashaSubmit.disabled = false;
+            sendStatus.textContent = 'Не удалось отправить (' + (err.code || err.message) + '). Попробуй ещё раз.';
+        }
+    });
+
+    // ===== камера с превью (Юля: сделать фото; Саша: переделать фото) =====
+    const liveVideo = document.getElementById('live-video');
+    const cameraTitle = document.getElementById('camera-title');
+    const cameraHint = document.getElementById('camera-hint');
+    const cameraStatus = document.getElementById('camera-status');
+    const cameraShoot = document.getElementById('camera-shoot');
+    let cameraMode = null;
+
+    async function openCamera(mode) {
+        cameraMode = mode;
+        cameraStatus.textContent = '';
+        cameraShoot.disabled = false;
+
+        if (mode === 'yulya') {
+            cameraTitle.textContent = 'Сфоткайся';
+            cameraHint.textContent = 'Нажми «Сфоткаться». В галерею фото пока не уйдёт: сначала ты его увидишь и сможешь переделать.';
+        } else {
+            cameraTitle.textContent = 'Переделаем фото';
+            cameraHint.textContent = 'Сфоткайся заново. В галерею фото попадёт, только когда ты нажмёшь «Отправить» на следующем экране.';
+        }
+        show('camera');
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            cameraStatus.textContent = 'Камера в этом браузере недоступна. Открой сайт по ссылке https://.';
+            return;
+        }
+
+        try {
+            liveVideo.srcObject = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'user' },
+                audio: false
+            });
+            await liveVideo.play();
+        } catch (err) {
+            cameraStatus.textContent = 'Камера не включилась. Разреши доступ к ней в браузере.';
+        }
+    }
+
+    // обычный кадр из превью (зеркально, как на экране), без надписей
+    function drawPlainFrame(source, target) {
+        const w = source.videoWidth;
+        const h = source.videoHeight;
+        target.width = w;
+        target.height = h;
+        const ctx = target.getContext('2d');
+        ctx.save();
+        ctx.translate(w, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(source, 0, 0, w, h);
+        ctx.restore();
+    }
+
+    cameraShoot.addEventListener('click', function () {
+        if (!liveVideo.videoWidth) {
+            cameraStatus.textContent = 'Камера ещё не готова. Проверь, что доступ разрешён.';
+            return;
+        }
+
+        if (cameraMode === 'sasha') {
+            // новое фото заменяет прежнее на экране «Попался», в галерею пока не уходит
+            takePhoto(liveVideo);
+            stopStream(liveVideo);
+            doFlash();
+            show('result');
+            return;
+        }
+
+        // Юля: показываем снимок, в галерею он уйдёт только по кнопке «Отправить»
+        drawPlainFrame(liveVideo, previewCanvas);
+        stopStream(liveVideo);
+        doFlash();
+        show('preview');
+    });
+
+    document.getElementById('camera-back').addEventListener('click', function () {
+        stopStream(liveVideo);
+        show(cameraMode === 'sasha' ? 'result' : 'menu');
+    });
+
+    // ===== Юля: просмотр фото, переделать или отправить =====
+    const previewCanvas = document.getElementById('preview-canvas');
+    const previewStatus = document.getElementById('preview-status');
+    const yulyaRetake = document.getElementById('yulya-retake');
+    const yulyaSubmit = document.getElementById('yulya-submit');
+
+    function resetPreview() {
+        yulyaRetake.disabled = false;
+        yulyaSubmit.disabled = false;
+        previewStatus.textContent = '';
+    }
+
+    yulyaRetake.addEventListener('click', function () {
+        openCamera('yulya');
+    });
+
+    yulyaSubmit.addEventListener('click', async function () {
+        yulyaRetake.disabled = true;
+        yulyaSubmit.disabled = true;
+        previewStatus.textContent = 'Отправляем в секретную галерею…';
+
+        try {
+            await fb.savePhoto(getPhotoDataUrl(previewCanvas));
+            previewStatus.textContent = 'Готово! Открываем галерею…';
+            location.href = 'gallery.html';
+        } catch (err) {
+            yulyaRetake.disabled = false;
+            yulyaSubmit.disabled = false;
+            previewStatus.textContent = 'Не удалось отправить (' + (err.code || err.message) + '). Попробуй ещё раз.';
+        }
+    });
+
+    document.getElementById('preview-back').addEventListener('click', function () {
+        show('menu');
+    });
+
+    // ===== меню Юли =====
+    document.getElementById('menu-gallery').addEventListener('click', function () {
+        location.href = 'gallery.html';
+    });
+
+    document.getElementById('menu-photo').addEventListener('click', function () {
+        openCamera('yulya');
+    });
+
+    document.getElementById('menu-logout').addEventListener('click', async function () {
+        try { await fb.logout(); } catch (err) { /* не страшно */ }
+        currentKey = null;
+        nameInput.value = '';
+        show('name');
+        nameInput.focus();
+    });
+
+    // ===== вход =====
+    const NAMES = {
+        sasha: ['саша', 'sasha'],
+        yulya: ['юля', 'юлия', 'юлька', 'yulya', 'yulia', 'julia']
+    };
+
+    function findUser(name) {
+        const clean = name.trim().toLowerCase();
+        return Object.keys(NAMES).find(function (key) {
+            return NAMES[key].indexOf(clean) !== -1;
+        }) || null;
+    }
+
+    const nameInput = document.getElementById('name-input');
+    const codeInput = document.getElementById('code-input');
+    const codeError = document.getElementById('code-error');
+
+    document.getElementById('name-form').addEventListener('submit', async function (event) {
+        event.preventDefault();
+
+        // выходим из прошлого аккаунта, чтобы чужие фото не попали в галерею
+        if (fb) {
+            try { await fb.logout(); } catch (err) { /* не страшно */ }
+        }
+
+        currentKey = findUser(nameInput.value);
+        if (!currentKey) {
+            start();
+            return;
+        }
+
+        codeInput.value = '';
+        codeError.textContent = '';
+        show('code');
+        codeInput.focus();
+    });
+
+    document.getElementById('code-form').addEventListener('submit', async function (event) {
+        event.preventDefault();
+
+        if (!fb) {
+            codeError.textContent = 'Не загрузился firebase-setup.js. Открой сайт по ссылке https:// (не двойным кликом по файлу) и проверь, что файл лежит рядом с index.html.';
+            return;
+        }
+        if (!fb.isConfigured) {
+            codeError.textContent = 'В firebase-setup.js ещё не вписаны данные firebaseConfig (там стоит «ВСТАВЬ_СЮДА»).';
+            return;
+        }
+
+        try {
+            await fb.login(currentKey, codeInput.value);
+            if (currentKey === 'yulya') {
+                show('menu');      // Юля: без шуток, сразу меню
+            } else {
+                start();           // Саша: сначала шутка
+            }
+        } catch (err) {
+            const wrong = ['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found', 'auth/invalid-login-credentials'];
+            codeError.textContent = wrong.indexOf(err.code) !== -1
+                ? 'Неверный код. Попробуй ещё раз.'
+                : 'Не получилось войти (' + (err.code || err.message) + ').';
+            codeInput.value = '';
+            codeInput.focus();
+        }
+    });
+
+    document.getElementById('code-back').addEventListener('click', function () {
+        nameInput.value = '';
+        show('name');
+        nameInput.focus();
+    });
+
+    show('name');
+    nameInput.focus();
+</script>
+</body>
+</html>

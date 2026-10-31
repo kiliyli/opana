@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Секретная страница</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Rubik:wght@400;500&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --bg: #1c2530;
+        --paper: #f4f6f8;
+        --ink: #e9eef3;
+        --muted: #8fa0b2;
+        --stamp: #e0382f;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+        min-height: 100vh;
+        padding: 32px 20px 60px;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: 'Rubik', system-ui, sans-serif;
+        line-height: 1.5;
+    }
+
+    [hidden] { display: none !important; }
+
+    .wrap {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+
+    .top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 28px;
+    }
+
+    .back {
+        color: var(--muted);
+        font-size: 15px;
+        text-decoration: none;
+    }
+
+    .back:hover { color: var(--ink); }
+
+    h1 {
+        font-family: 'Russo One', sans-serif;
+        font-size: clamp(34px, 8vw, 56px);
+        font-weight: 400;
+        line-height: 1.05;
+        text-align: center;
+    }
+
+    .subtitle {
+        max-width: 40ch;
+        margin: 12px auto 44px;
+        color: var(--muted);
+        font-size: 17px;
+        text-align: center;
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 34px 26px;
+    }
+
+    .card {
+        padding: 10px 10px 14px;
+        background: var(--paper);
+        border: 0;
+        border-radius: 4px;
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+        font: inherit;
+        text-align: center;
+        cursor: pointer;
+        transform: rotate(-2deg);
+        transition: transform 0.25s ease;
+    }
+
+    .card:nth-child(even) { transform: rotate(1.8deg); }
+    .card:nth-child(3n) { transform: rotate(-0.8deg); }
+
+    .card:hover,
+    .card:focus-visible {
+        transform: rotate(0) scale(1.04);
+        outline: none;
+    }
+
+    .card:focus-visible { box-shadow: 0 0 0 3px var(--stamp); }
+
+    .card img,
+    .placeholder {
+        display: block;
+        width: 100%;
+        aspect-ratio: 4 / 5;
+        object-fit: cover;
+        background: #cfd6dd;
+    }
+
+    .placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6b7886;
+        font-size: 15px;
+    }
+
+    .caption {
+        margin-top: 10px;
+        min-height: 1.4em;
+        color: #2a3440;
+        font-size: 15px;
+        font-weight: 500;
+    }
+
+    .date {
+        color: #6b7886;
+        font-size: 13px;
+    }
+
+    .empty {
+        grid-column: 1 / -1;
+        max-width: 44ch;
+        margin: 0 auto;
+        color: var(--muted);
+        font-size: 17px;
+        text-align: center;
+    }
+
+    .delete {
+        padding: 8px 20px;
+        font-family: inherit;
+        font-size: 14px;
+        color: #fff;
+        background: var(--stamp);
+        border: 0;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+
+    .delete:hover { background: #f0463c; }
+
+    /* увеличенное фото */
+    .lightbox {
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        padding: 24px;
+        background: rgba(10, 14, 19, 0.92);
+        cursor: zoom-out;
+    }
+
+    .lightbox img {
+        max-width: 100%;
+        max-height: 80vh;
+        border: 10px solid var(--paper);
+        border-radius: 3px;
+    }
+
+    .lightbox p {
+        color: var(--ink);
+        font-size: 17px;
+        text-align: center;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .card { transition: none; }
+    }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+    <div class="top">
+        <a class="back" href="index.html">← Назад</a>
+    </div>
+
+    <h1>Юля и Саша</h1>
+    <p class="subtitle" id="subtitle">Загружаем фото…</p>
+
+    <div class="grid" id="grid"></div>
+</div>
+
+<div class="lightbox" id="lightbox" hidden>
+    <img id="lightbox-img" alt="">
+    <p id="lightbox-caption"></p>
+    <button class="delete" type="button" id="lightbox-delete">Удалить это фото</button>
+</div>
+
+<script type="module">
+    import { onUser, loadPhotos, removePhoto, USERS } from './firebase-setup.js';
+
+    // Если переименуешь главную страницу (например, в index.html), поменяй имя здесь.
+    const MAIN_PAGE = 'index.html';
+
+    const grid = document.getElementById('grid');
+    const subtitle = document.getElementById('subtitle');
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightbox-img');
+    const lightboxCaption = document.getElementById('lightbox-caption');
+    const lightboxDelete = document.getElementById('lightbox-delete');
+
+    let openedPhoto = null;
+
+    function formatDate(date) {
+        return date ? date.toLocaleString('ru-RU', {
+            day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'
+        }) : '';
+    }
+
+    function labelOf(owner) {
+        return USERS[owner] ? 'Фото: ' + USERS[owner].label : 'Фото';
+    }
+
+    function openPhoto(photo) {
+        openedPhoto = photo;
+        lightboxImg.src = photo.image;
+        lightboxImg.alt = labelOf(photo.owner);
+        lightboxCaption.textContent = labelOf(photo.owner) + ' · ' + formatDate(photo.createdAt);
+        lightbox.hidden = false;
+    }
+
+    function closeLightbox() {
+        lightbox.hidden = true;
+        lightboxImg.src = '';
+        openedPhoto = null;
+    }
+
+    function render(photos) {
+        grid.replaceChildren();
+
+        if (photos.length === 0) {
+            const empty = document.createElement('p');
+            empty.className = 'empty';
+            empty.textContent = 'Пока здесь пусто. Фото появятся, когда Юля или Саша войдут на главной странице и камера их сфоткает.';
+            grid.append(empty);
+            subtitle.textContent = 'Секретная страница.';
+            return;
+        }
+
+        subtitle.textContent = 'Секретная страница. Нажми на фото, чтобы увеличить.';
+
+        photos.forEach(function (photo) {
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = 'card';
+            card.setAttribute('aria-label', labelOf(photo.owner) + ', открыть');
+
+            const img = document.createElement('img');
+            img.src = photo.image;
+            img.alt = labelOf(photo.owner);
+
+            const caption = document.createElement('p');
+            caption.className = 'caption';
+            caption.textContent = USERS[photo.owner] ? USERS[photo.owner].label : '';
+
+            const date = document.createElement('p');
+            date.className = 'date';
+            date.textContent = formatDate(photo.createdAt);
+
+            card.append(img, caption, date);
+            card.addEventListener('click', function () { openPhoto(photo); });
+            grid.append(card);
+        });
+    }
+
+    async function refresh() {
+        try {
+            render(await loadPhotos());
+        } catch (err) {
+            subtitle.textContent = 'Не удалось загрузить фото (' + (err.code || err.message) + ').';
+        }
+    }
+
+    lightbox.addEventListener('click', function (event) {
+        if (event.target !== lightboxDelete) {
+            closeLightbox();
+        }
+    });
+
+    lightboxDelete.addEventListener('click', async function () {
+        if (!openedPhoto || !confirm('Удалить это фото из галереи насовсем?')) {
+            return;
+        }
+        try {
+            await removePhoto(openedPhoto.id);
+            closeLightbox();
+            refresh();
+        } catch (err) {
+            alert('Не получилось удалить: ' + (err.code || err.message));
+        }
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !lightbox.hidden) {
+            closeLightbox();
+        }
+    });
+
+    // страница открыта только для тех, кто вошёл по секретному коду
+    onUser(function (user) {
+        if (!user) {
+            location.replace(MAIN_PAGE);
+            return;
+        }
+        refresh();
+    });
+</script>
+</body>
+</html>
