@@ -455,7 +455,7 @@
         return String(n).padStart(2, '0');
     }
 
-    // рисует кадр из видео (source) в большой canvas с подписью как у камеры наблюдения
+    // рисует кадр из видео (source) в большой canvas (зеркально, как селфи)
     function takePhoto(source) {
         const w = source.videoWidth;
         const h = source.videoHeight;
@@ -777,8 +777,8 @@
 
     // ===== вход =====
     const NAMES = {
-        sasha: ['саша', 'sasha'],
-        yulya: ['юля', 'юлия', 'юлька', 'yulya', 'yulia', 'julia']
+        sasha: ['саша', 'sasha', "сашка", "саня", "сашуля", "саня завод", "макака", "sanek"],
+        yulya: ['юля', 'юлия', 'юлька', 'юлечка', 'юльк', 'макака']
     };
 
     function findUser(name) {

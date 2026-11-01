@@ -148,33 +148,163 @@
 
     .delete:hover { background: #f0463c; }
 
-    /* увеличенное фото */
+    /* окно с фото и перепиской */
     .lightbox {
         position: fixed;
         inset: 0;
         z-index: 10;
         display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 14px;
         padding: 24px;
         background: rgba(10, 14, 19, 0.92);
-        cursor: zoom-out;
+        overflow-y: auto;
     }
 
-    .lightbox img {
+    .lb-panel {
+        position: relative;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        width: 100%;
+        max-width: 960px;
+        margin: auto;
+        padding: 18px;
+        background: #243140;
+        border-radius: 14px;
+    }
+
+    .lb-panel > img {
+        flex: 1 1 320px;
+        min-width: 0;
         max-width: 100%;
-        max-height: 80vh;
-        border: 10px solid var(--paper);
+        max-height: 75vh;
+        align-self: flex-start;
+        object-fit: contain;
+        border: 8px solid var(--paper);
         border-radius: 3px;
     }
 
-    .lightbox p {
+    .lb-side {
+        flex: 1 1 280px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .lb-close {
+        position: absolute;
+        top: 6px;
+        right: 12px;
+        padding: 0 8px;
+        font-size: 30px;
+        line-height: 1;
+        color: var(--muted);
+        background: none;
+        border: 0;
+        cursor: pointer;
+    }
+
+    .lb-close:hover { color: var(--ink); }
+
+    .lb-caption {
+        padding-right: 30px;
         color: var(--ink);
-        font-size: 17px;
+        font-size: 16px;
+    }
+
+    .chat {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 140px;
+        max-height: 42vh;
+        padding: 4px 2px;
+        overflow-y: auto;
+    }
+
+    .chat-note {
+        margin: auto;
+        color: var(--muted);
+        font-size: 15px;
         text-align: center;
     }
+
+    .msg {
+        max-width: 88%;
+        padding: 8px 12px;
+        font-size: 15px;
+        background: #33414f;
+        border-radius: 12px;
+        overflow-wrap: anywhere;
+    }
+
+    .msg.mine {
+        align-self: flex-end;
+        background: #3b5f84;
+    }
+
+    .msg-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 2px;
+        color: var(--muted);
+        font-size: 12px;
+    }
+
+    .msg-del {
+        padding: 0 4px;
+        font-size: 15px;
+        line-height: 1;
+        color: var(--muted);
+        background: none;
+        border: 0;
+        cursor: pointer;
+    }
+
+    .msg-del:hover { color: #ff8a82; }
+
+    .chat-form {
+        display: flex;
+        gap: 8px;
+    }
+
+    .chat-form input {
+        flex: 1;
+        min-width: 0;
+        padding: 10px 12px;
+        font-family: inherit;
+        font-size: 15px;
+        color: var(--ink);
+        background: #1c2530;
+        border: 2px solid #55616f;
+        border-radius: 8px;
+    }
+
+    .chat-form input:focus-visible,
+    .chat-send:focus-visible,
+    .delete:focus-visible,
+    .lb-close:focus-visible {
+        outline: 3px solid var(--stamp);
+        outline-offset: 2px;
+    }
+
+    .chat-send {
+        padding: 10px 16px;
+        font-family: inherit;
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--bg);
+        background: var(--paper);
+        border: 0;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+
+    .chat-send:hover { background: #fff; }
+
+    .lb-side .delete { align-self: flex-start; }
 
     @media (prefers-reduced-motion: reduce) {
         .card { transition: none; }
@@ -195,15 +325,28 @@
 </div>
 
 <div class="lightbox" id="lightbox" hidden>
-    <img id="lightbox-img" alt="">
-    <p id="lightbox-caption"></p>
-    <button class="delete" type="button" id="lightbox-delete">Удалить это фото</button>
+    <div class="lb-panel" role="dialog" aria-modal="true" aria-label="Фото и комментарии">
+        <button class="lb-close" type="button" id="lb-close" aria-label="Закрыть">×</button>
+        <img id="lightbox-img" alt="">
+        <div class="lb-side">
+            <p class="lb-caption" id="lightbox-caption"></p>
+            <div class="chat" id="chat" aria-live="polite"></div>
+            <form class="chat-form" id="chat-form" autocomplete="off">
+                <input type="text" id="chat-input" maxlength="300" placeholder="Написать комментарий…" aria-label="Комментарий" required>
+                <button class="chat-send" type="submit">Отправить</button>
+            </form>
+            <button class="delete" type="button" id="lightbox-delete">Удалить это фото</button>
+        </div>
+    </div>
 </div>
 
 <script type="module">
-    import { onUser, loadPhotos, removePhoto, USERS } from './firebase-setup.js';
+    import {
+        onUser, loadPhotos, removePhoto, loadComments, addComment, removeComment,
+        currentUserKey, USERS
+    } from './firebase-setup.js';
 
-    // Если переименуешь главную страницу (например, в index.html), поменяй имя здесь.
+    // Если переименуешь главную страницу, поменяй имя здесь.
     const MAIN_PAGE = 'index.html';
 
     const grid = document.getElementById('grid');
@@ -212,8 +355,13 @@
     const lightboxImg = document.getElementById('lightbox-img');
     const lightboxCaption = document.getElementById('lightbox-caption');
     const lightboxDelete = document.getElementById('lightbox-delete');
+    const chat = document.getElementById('chat');
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
 
     let openedPhoto = null;
+    let pollTimer = null;
+    let shownIds = '';
 
     function formatDate(date) {
         return date ? date.toLocaleString('ru-RU', {
@@ -221,37 +369,149 @@
         }) : '';
     }
 
+    function nameOf(owner) {
+        return USERS[owner] ? USERS[owner].label : '';
+    }
+
     function labelOf(owner) {
         return USERS[owner] ? 'Фото: ' + USERS[owner].label : 'Фото';
     }
 
+    // ===== переписка под фото =====
+    function renderChat(comments, forceScroll) {
+        const me = currentUserKey();
+        const ids = comments.map(function (c) { return c.id; }).join(',');
+        if (ids === shownIds && !forceScroll) {
+            return;   // ничего нового, не перерисовываем
+        }
+        shownIds = ids;
+        chat.replaceChildren();
+
+        if (comments.length === 0) {
+            const note = document.createElement('p');
+            note.className = 'chat-note';
+            note.textContent = 'Комментариев пока нет. Напиши первой(-ым)!';
+            chat.append(note);
+            return;
+        }
+
+        comments.forEach(function (comment) {
+            const mine = comment.owner === me;
+            const msg = document.createElement('div');
+            msg.className = 'msg' + (mine ? ' mine' : '');
+
+            const meta = document.createElement('div');
+            meta.className = 'msg-meta';
+            const who = document.createElement('span');
+            who.textContent = nameOf(comment.owner) + (comment.createdAt ? ' · ' + formatDate(comment.createdAt) : '');
+            meta.append(who);
+
+            if (mine) {
+                const del = document.createElement('button');
+                del.type = 'button';
+                del.className = 'msg-del';
+                del.textContent = '×';
+                del.title = 'Удалить комментарий';
+                del.setAttribute('aria-label', 'Удалить комментарий');
+                del.addEventListener('click', async function () {
+                    try {
+                        await removeComment(openedPhoto.id, comment.id);
+                        await refreshChat(false);
+                    } catch (err) {
+                        alert('Не получилось удалить: ' + (err.code || err.message));
+                    }
+                });
+                meta.append(del);
+            }
+
+            const text = document.createElement('div');
+            text.textContent = comment.text;   // textContent: безопасно, теги не разбираются
+
+            msg.append(meta, text);
+            chat.append(msg);
+        });
+
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    async function refreshChat(forceScroll) {
+        if (!openedPhoto) {
+            return;
+        }
+        const photoId = openedPhoto.id;
+        try {
+            const comments = await loadComments(photoId);
+            if (openedPhoto && openedPhoto.id === photoId) {
+                renderChat(comments, forceScroll);
+            }
+        } catch (err) {
+            chat.replaceChildren();
+            const note = document.createElement('p');
+            note.className = 'chat-note';
+            note.textContent = 'Не удалось загрузить комментарии (' + (err.code || err.message) + ').';
+            chat.append(note);
+        }
+    }
+
     function openPhoto(photo) {
         openedPhoto = photo;
+        shownIds = '';
         lightboxImg.src = photo.image;
         lightboxImg.alt = labelOf(photo.owner);
         lightboxCaption.textContent = labelOf(photo.owner) + ' · ' + formatDate(photo.createdAt);
+        chat.replaceChildren();
+        const note = document.createElement('p');
+        note.className = 'chat-note';
+        note.textContent = 'Загружаем комментарии…';
+        chat.append(note);
+        chatInput.value = '';
         lightbox.hidden = false;
+
+        refreshChat(true);
+        // пока окно открыто, раз в 5 секунд подтягиваем новые сообщения
+        pollTimer = setInterval(function () { refreshChat(false); }, 5000);
     }
 
     function closeLightbox() {
+        clearInterval(pollTimer);
+        pollTimer = null;
         lightbox.hidden = true;
         lightboxImg.src = '';
         openedPhoto = null;
     }
 
+    chatForm.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const text = chatInput.value.trim();
+        if (!text || !openedPhoto) {
+            return;
+        }
+        chatInput.disabled = true;
+        try {
+            await addComment(openedPhoto.id, text);
+            chatInput.value = '';
+            await refreshChat(true);
+        } catch (err) {
+            alert('Не получилось отправить: ' + (err.code || err.message));
+        }
+        chatInput.disabled = false;
+        chatInput.focus();
+    });
+
+    // ===== сетка с фото =====
     function render(photos) {
         grid.replaceChildren();
 
         if (photos.length === 0) {
             const empty = document.createElement('p');
             empty.className = 'empty';
-            empty.textContent = 'Пока здесь пусто. Фото появятся, когда Юля или Саша войдут на главной странице и камера их сфоткает.';
+            empty.textContent = 'Пока здесь пусто. Фото появятся, когда Юля или Саша отправят их в галерею.';
             grid.append(empty);
             subtitle.textContent = 'Секретная страница.';
             return;
         }
 
-        subtitle.textContent = 'Секретная страница. Нажми на фото, чтобы увеличить.';
+        subtitle.textContent = 'Секретная страница. Нажми на фото, чтобы увеличить и написать комментарий.';
 
         photos.forEach(function (photo) {
             const card = document.createElement('button');
@@ -265,7 +525,7 @@
 
             const caption = document.createElement('p');
             caption.className = 'caption';
-            caption.textContent = USERS[photo.owner] ? USERS[photo.owner].label : '';
+            caption.textContent = nameOf(photo.owner);
 
             const date = document.createElement('p');
             date.className = 'date';
@@ -285,14 +545,8 @@
         }
     }
 
-    lightbox.addEventListener('click', function (event) {
-        if (event.target !== lightboxDelete) {
-            closeLightbox();
-        }
-    });
-
     lightboxDelete.addEventListener('click', async function () {
-        if (!openedPhoto || !confirm('Удалить это фото из галереи насовсем?')) {
+        if (!openedPhoto || !confirm('Удалить это фото вместе с комментариями насовсем?')) {
             return;
         }
         try {
@@ -301,6 +555,15 @@
             refresh();
         } catch (err) {
             alert('Не получилось удалить: ' + (err.code || err.message));
+        }
+    });
+
+    document.getElementById('lb-close').addEventListener('click', closeLightbox);
+
+    // клик по тёмному фону закрывает окно
+    lightbox.addEventListener('click', function (event) {
+        if (event.target === lightbox) {
+            closeLightbox();
         }
     });
 

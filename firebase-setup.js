@@ -11,7 +11,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAWTfucJA5wCc0R6BpGzzsqJt0eHfHmChM",
+    apiKey: "AIzaSyAWTfucJA5wCc0R6BpGzzsqJt0eHfHmChM",
   authDomain: "kiliyli.firebaseapp.com",
   projectId: "kiliyli",
   storageBucket: "kiliyli.firebasestorage.app",
@@ -78,6 +78,49 @@ export async function loadPhotos() {
     });
 }
 
-export function removePhoto(id) {
-    return deleteDoc(doc(db, 'photos', id));
+// Удаляем фото вместе с его комментариями (сами по себе комментарии не удаляются)
+export async function removePhoto(id) {
+    const comments = await getDocs(collection(db, 'photos', id, 'comments'));
+    await Promise.all(comments.docs.map(function (item) {
+        return deleteDoc(item.ref);
+    }));
+    await deleteDoc(doc(db, 'photos', id));
+}
+
+// Кто сейчас вошёл: 'yulya', 'sasha' или null
+export function currentUserKey() {
+    const user = auth.currentUser;
+    return user ? userKeyByEmail(user.email) : null;
+}
+
+// ===== комментарии к фото =====
+export async function loadComments(photoId) {
+    const snapshot = await getDocs(
+        query(collection(db, 'photos', photoId, 'comments'), orderBy('createdAt', 'asc'))
+    );
+    return snapshot.docs.map(function (item) {
+        const data = item.data();
+        return {
+            id: item.id,
+            owner: data.owner,
+            text: data.text,
+            createdAt: data.createdAt ? data.createdAt.toDate() : null
+        };
+    });
+}
+
+export function addComment(photoId, text) {
+    const owner = currentUserKey();
+    if (!owner) {
+        return Promise.reject(new Error('нет входа'));
+    }
+    return addDoc(collection(db, 'photos', photoId, 'comments'), {
+        owner: owner,
+        text: text,
+        createdAt: serverTimestamp()
+    });
+}
+
+export function removeComment(photoId, commentId) {
+    return deleteDoc(doc(db, 'photos', photoId, 'comments', commentId));
 }
